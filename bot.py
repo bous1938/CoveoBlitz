@@ -10,41 +10,97 @@ class Bot:
         """
         self.tick = tick
         self.DirectionChoisi = 'N'
+        self.actionChoisi = None
+        self.HauteurActu = tick.tideSchedule[0]    
+        #On Spawn au premier tour
+        self.startPortIndex = 0 
         if tick.currentLocation is None:
-            return Spawn(tick.map.ports[0])
-        
-        # Choix du prochain port (On prend le plus proche)
-        if not self.CloserPort is None: 
-            if self.calculDistance(self.CloserPort) == 0:
-                self.CloserPort = None
-                self.printDebugInfo()  
-                return Dock()
+            self.printDebugInfo(Spawn(tick.map.ports[self.startPortIndex]))
+            return Spawn(tick.map.ports[self.startPortIndex])
 
-        if self.CloserPort is None : 
+        #On Trouve le port le plus proche
+        self.findCloserPort()
+
+        #Si le port le plus proche est à une distance de 0, on ancre.
+        if self.calculDistance(self.CloserPort) == 0:
             self.CloserPort = None
-            closerDist = 0
-            for i in range(len(tick.map.ports)):
-                if i in tick.visitedPortIndices: continue 
-                if self.CloserPort is None:
-                    self.CloserPort = tick.map.ports[i]
-                    closerDist =  self.calculDistance(tick.map.ports[i])
+            self.printDebugInfo(Dock)
+            return Dock()
 
-                tmp = self.calculDistance(tick.map.ports[i])
-                if tmp == 0 : 
-                    self.CloserPort = None
-                    self.printDebugInfo()     
-                    return Dock()
-
-                if closerDist > tmp: 
-                    self.CloserPort = tick.map.ports[i]
-                    closerDist = tmp
-
-
+        #Sinon on choisi la prochaine direction
         self.chooseBestDirection()  
+        self.printDebugInfo(Sail(self.DirectionChoisi))  
+
+        Ymax  = self.CloserPort.row
+        Ymin = self.tick.currentLocation.row
+        if Ymax > Ymin:
+            tmp = Ymax
+            Ymax = Ymin
+            Ymin = tmp
+
+        Xmin = self.CloserPort.column
+        Xmax = self.CloserPort.column
+        if Xmax > Xmin:
+            tmp = Xmax
+            Xmax = Xmin
+            Xmin = tmp
+
+        if (Xmax - Xmin) < 5: 
+            Xmax = Xmax + 5
+            Xmin = Xmin - 5
+       
+        if (Ymax - Ymin) < 5: 
+            Ymax = Ymax + 5
+            Ymin = Ymin - 5
+       
+
+        tmpArrayTopo = []
+ 
+        for y in range(Ymin,Ymax):
+            row = []
+            for x in range(Xmin, Xmax):
+                row.append(self.tick.map.topology[y][x])
+            tmpArrayTopo.append(row)
 
 
-        self.printDebugInfo()      
+        print(tmpArrayTopo)
+
+
+
+
+        
+
+
         return Sail(self.DirectionChoisi)
+    def findBestPath(self, matrice, depart, cible):
+        s = None
+
+
+    def findCloserPort(self):
+        if self.CloserPort is None : 
+            closerDist = 0
+
+            #On passe sur tous les ports de la map
+            for i in range(len(self.tick.map.ports)):
+                if i in self.tick.visitedPortIndices: continue # Si un port est visité on l'ignore
+
+                # Si on a pas encore trouvé le port le plus proche, on prend le port actuel par défaut
+                if self.CloserPort is None:
+                    self.CloserPort = self.tick.map.ports[i]
+                    closerDist =  self.calculDistance(self.tick.map.ports[i])
+                    continue
+                
+                tmp = self.calculDistance(self.tick.map.ports[i])
+                # Si on trouve un port plus proche, on le cible
+                if closerDist > tmp: 
+                    self.CloserPort = self.tick.map.ports[i]
+                    closerDist = tmp
+            
+            #Si on a passé sur tous les ports, on retourne au port d'origine
+            if self.CloserPort is None:
+                self.CloserPort = self.tick.map.ports[self.startPortIndex]
+
+
 
 
     def calculDistance(self, port: Position):
@@ -52,9 +108,17 @@ class Bot:
 
 
 
-    def printDebugInfo(self):
+    def printDebugInfo(self,ActionChoisi:Action):
+        print("Action choisi : " + str(ActionChoisi))
         print("Direction choisi : "  + str(self.DirectionChoisi))
-        print("Position Actuelle : X: " + str(self.tick.currentLocation.column) + "  Y:" + str(self.tick.currentLocation.row))
+        
+        xActu = -1
+        yActu = -1
+        if not self.tick.currentLocation is None:
+            xActu = self.tick.currentLocation.column
+            yActu = self.tick.currentLocation.row
+        print("Position Actuelle : X: " + str(xActu) + "  Y:" + str(yActu))
+
         xPortCible = -1
         yPortCible = -1
         if not self.CloserPort is None:
@@ -62,7 +126,7 @@ class Bot:
             yPortCible = self.CloserPort.row
         print("Position ciblé : X: " + str(xPortCible) + "  Y:" + str(yPortCible))
         print("Port Visité : " + str(self.tick.visitedPortIndices))
-
+        print("Niveau d'eau actuel : " + str(self.HauteurActu))
 
     def CalculNextPost(self):
         nextPos = self.tick.currentLocation
